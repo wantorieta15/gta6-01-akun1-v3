@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SOLMAR BAY — Sunset Run</title>
+<style>
+  :root { --amber: #ffd24d; --panel: rgba(12, 14, 20, 0.78); --panel2: rgba(12, 14, 20, 0.6); --line: rgba(255,255,255,0.14); }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #1a1426; font-family: 'Segoe UI', Arial, sans-serif; color: #fff; }
+  #game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+  #status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .hidden { display: none !important; }
+  /* ---------- HUD ---------- */
+  #hud { position: fixed; inset: 0; pointer-events: none; z-index: 5; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; backdrop-filter: blur(2px); }
+  /* Mission header, top-left */
+  #mission-box { position: absolute; top: 14px; left: 14px; max-width: 430px; border-left: 4px solid var(--amber); }
+  .mission-kicker { color: var(--amber); font-weight: 800; font-size: 13px; letter-spacing: 1px; }
+  .mission-title { font-weight: 800; font-size: 19px; letter-spacing: 0.5px; margin: 2px 0; }
+  .mission-objective { font-size: 14px; color: #e8e8e8; }
+  .mission-next { font-size: 12px; color: #9fd8e8; margin-top: 3px; }
+  /* Police panel, left */
+  #police-box { position: absolute; top: 150px; left: 14px; width: 250px; }
+  #police-title { color: #ff8a8a; font-weight: 800; font-size: 12px; letter-spacing: 1px; margin-bottom: 6px; }
+  .police-row { display: flex; justify-content: space-between; font-size: 13px; padding: 2px 0; }
+  .p-call { font-weight: 700; }
+  .p-role { font-size: 11px; font-weight: 800; padding: 1px 6px; border-radius: 4px; }
+  .p-role.pursuit { background: #ff8a3d; color: #111; }
+  .p-role.ramming { background: #ff3b30; color: #fff; }
+  .p-role.searching { background: #4dd0e1; color: #111; }
+  .p-role.roadblock { background: #ffd24d; color: #111; }
+  .p-role.searchlight { background: #b388ff; color: #111; }
+  .police-none { font-size: 12px; color: #aaa; }
+  .police-more { font-size: 11px; color: #aaa; }
+  /* Minimap + vitals, bottom-left */
+  #map-wrap { position: absolute; left: 14px; bottom: 14px; width: 210px; }
+  #minimap { width: 200px; height: 200px; border-radius: 50%; border: 3px solid rgba(255,255,255,0.35); display: block; background: #20242e; }
+  #district-name { font-weight: 800; font-size: 16px; margin-top: 6px; }
+  #district-sub { font-size: 11px; color: #bbb; }
+  .bar-row { display: flex; align-items: center; gap: 6px; margin-top: 4px; font-size: 11px; }
+  .bar { flex: 1; height: 8px; background: rgba(255,255,255,0.15); border-radius: 4px; overflow: hidden; }
+  .bar > i { display: block; height: 100%; background: #7ac74f; }
+  #armour-bar { background: #4d9de1; } #rep-bar { background: #b388ff; }
+  #district-stand.friendly { color: #7ac74f; font-weight: 800; }
+  #district-stand.neutral { color: #ffd24d; font-weight: 800; }
+  #district-stand.wary { color: #ff8a8a; font-weight: 800; }
+  /* Money + stars, top-right */
+  #money-box { position: absolute; top: 14px; right: 14px; text-align: right; }
+  #clock { font-size: 12px; color: #ddd; letter-spacing: 1px; }
+  #money { font-size: 30px; font-weight: 800; color: #7dff9a; }
+  #stars { font-size: 22px; letter-spacing: 2px; }
+  #stars .star { color: rgba(255,255,255,0.25); }
+  #stars .star.on { color: #ffd24d; }
+  #stars.hot .star.on { color: #ff3b30; }
+  #air-banner { color: #ff8a8a; font-weight: 800; font-size: 12px; letter-spacing: 1px; display: none; }
+  /* Rank + weapons + crew, right */
+  #side-box { position: absolute; top: 150px; right: 14px; width: 230px; }
+  #rank-name { color: #7dff9a; font-weight: 800; font-size: 14px; }
+  #rank-sub { font-size: 11px; color: #bbb; }
+  .rank-bar-wrap { height: 8px; background: rgba(255,255,255,0.15); border-radius: 4px; overflow: hidden; margin: 4px 0 10px; }
+  #rank-bar { display: block; height: 100%; background: linear-gradient(90deg, #7dff9a, #ffd24d); width: 50%; }
+  .weapon-slot { display: flex; align-items: center; gap: 8px; padding: 5px 8px; margin: 3px 0; background: var(--panel2); border: 1px solid var(--line); border-radius: 6px; font-size: 13px; }
+  .weapon-slot.active { border-color: var(--amber); background: rgba(255, 210, 77, 0.15); }
+  .weapon-slot.locked { opacity: 0.45; }
+  .w-num { font-weight: 800; color: var(--amber); width: 14px; }
+  .w-name { font-weight: 700; flex: 1; }
+  .w-ammo { font-size: 12px; color: #ccc; }
+  .crew-card { display: flex; align-items: center; gap: 8px; padding: 6px 8px; margin: 4px 0; background: var(--panel2); border: 1px solid var(--line); border-radius: 6px; }
+  .crew-face { width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; color: #111; flex-shrink: 0; }
+  .crew-meta { flex: 1; min-width: 0; }
+  .crew-meta b { display: block; font-size: 12px; }
+  .crew-meta i { display: block; font-size: 11px; color: #bbb; font-style: normal; }
+  .crew-key { font-weight: 800; color: var(--amber); border: 1px solid var(--amber); border-radius: 4px; padding: 1px 5px; font-size: 11px; }
+  /* Dialogue, bottom-center */
+  #dialogue { position: absolute; left: 50%; bottom: 90px; transform: translateX(-50%); width: 560px; max-width: 60vw; display: none; align-items: center; gap: 12px; }
+  #dialogue.show { display: flex; }
+  .dlg-face { width: 52px; height: 52px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 26px; font-weight: 800; color: #111; flex-shrink: 0; }
+  .dlg-name { color: #7fd8ff; font-weight: 800; font-size: 13px; letter-spacing: 0.5px; }
+  .dlg-text { font-size: 15px; line-height: 1.35; }
+  /* Toast, centre */
+  #toast { position: absolute; left: 50%; top: 34%; transform: translateX(-50%); font-size: 30px; font-weight: 800; color: var(--amber); text-shadow: 0 2px 12px rgba(0,0,0,0.8); display: none; text-align: center; }
+  #toast.show { display: block; }
+  /* Speedometer, bottom-right */
+  #speed-box { position: absolute; right: 16px; bottom: 14px; text-align: right; }
+  #speed-num { font-size: 56px; font-weight: 800; line-height: 0.9; }
+  #speed-unit { font-size: 14px; color: #ccc; }
+  #car-name { font-size: 15px; font-weight: 800; color: var(--amber); }
+  .cond-wrap { width: 160px; height: 8px; background: rgba(255,255,255,0.15); border-radius: 4px; overflow: hidden; margin-left: auto; margin-top: 4px; }
+  #car-cond { display: block; height: 100%; background: #7ac74f; width: 100%; }
+  /* Radio + controls, bottom-centre */
+  #radio-line { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); font-size: 12px; color: #ffe9a8; background: var(--panel2); padding: 4px 12px; border-radius: 12px; }
+  #controls-hint { position: absolute; left: 50%; bottom: 42px; transform: translateX(-50%); font-size: 11px; color: rgba(255,255,255,0.6); white-space: nowrap; }
+  /* ---------- Title screen ---------- */
+  #title { position: fixed; inset: 0; z-index: 10; display: flex; flex-direction: column; align-items: center; justify-content: center; background: linear-gradient(180deg, rgba(20,12,40,0.25) 0%, rgba(20,12,40,0.55) 60%, rgba(20,12,40,0.85) 100%); text-align: center; }
+  #title h1 { font-size: 84px; font-weight: 900; letter-spacing: 4px; margin: 0; color: var(--amber); text-shadow: 0 4px 30px rgba(0,0,0,0.7); font-family: Impact, 'Arial Narrow', sans-serif; }
+  #title h2 { font-size: 22px; letter-spacing: 8px; margin: 4px 0 10px; color: #fff; font-weight: 300; }
+  #title p.tag { font-size: 15px; color: #e8e8e8; max-width: 560px; line-height: 1.5; }
+  .start-btn { pointer-events: auto; cursor: pointer; margin: 18px 0; padding: 14px 44px; font-size: 20px; font-weight: 800; letter-spacing: 2px; color: #111; background: var(--amber); border: none; border-radius: 8px; }
+  .start-btn:hover { background: #ffe08a; }
+  #title-saves { display: flex; gap: 12px; margin-top: 8px; }
+  .save-slot { pointer-events: auto; cursor: pointer; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 16px; color: #fff; text-align: left; min-width: 190px; }
+  .save-slot b { display: block; font-size: 13px; }
+  .save-slot span { font-size: 11px; color: #bbb; }
+  .save-slot.small { min-width: 0; flex: 1; }
+  .save-slot button { pointer-events: auto; cursor: pointer; margin-top: 6px; padding: 4px 14px; background: var(--amber); border: none; border-radius: 5px; font-weight: 800; }
+  #title .keys { margin-top: 16px; font-size: 12px; color: #ccc; line-height: 1.7; }
+  /* ---------- Pause / map screen ---------- */
+  #pause { position: fixed; inset: 0; z-index: 10; background: #0b0b12; padding: 24px 40px; overflow-y: auto; }
+  #pause h1 { font-size: 34px; letter-spacing: 3px; color: var(--amber); margin: 0 0 4px; font-family: Impact, 'Arial Narrow', sans-serif; }
+  .pause-tabs { display: flex; gap: 18px; border-bottom: 1px solid var(--line); margin-bottom: 16px; }
+  .pause-tab { pointer-events: auto; cursor: pointer; background: none; border: none; color: #aaa; font-size: 14px; font-weight: 700; letter-spacing: 1px; padding: 8px 2px; }
+  .pause-tab.active { color: #fff; border-bottom: 3px solid #ff5a3d; }
+  .pause-pane { display: flex; gap: 24px; }
+  .pause-col { flex: 1; min-width: 0; }
+  #pausemap { width: 100%; border: 1px solid var(--line); border-radius: 8px; background: #232833; }
+  #progress-ring { width: 130px; height: 130px; border-radius: 50%; background: conic-gradient(var(--amber) calc(var(--p, 0) * 1%), rgba(255,255,255,0.12) 0); display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; }
+  #progress-ring > div { width: 104px; height: 104px; border-radius: 50%; background: #14161d; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  #progress-num { font-size: 26px; font-weight: 800; }
+  .check-row { display: flex; align-items: center; gap: 10px; font-size: 13px; padding: 4px 0; }
+  .check-row span:first-child { width: 170px; }
+  .check-bar { flex: 1; height: 7px; background: rgba(255,255,255,0.12); border-radius: 4px; overflow: hidden; }
+  .check-bar > i { display: block; height: 100%; background: #7ac74f; }
+  #career-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px; }
+  .stat b { display: block; font-size: 22px; }
+  .stat span { font-size: 11px; color: #bbb; letter-spacing: 0.5px; }
+  #mission-ratings { display: flex; gap: 8px; margin-top: 10px; }
+  .rating { width: 34px; height: 34px; border-radius: 50%; border: 2px solid #666; display: flex; align-items: center; justify-content: center; font-weight: 800; color: #888; }
+  .rating.got { border-color: var(--amber); color: var(--amber); }
+  .pause-btn { pointer-events: auto; cursor: pointer; margin-top: 18px; padding: 10px 26px; font-size: 15px; font-weight: 800; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: #fff; }
+  .pause-btn.primary { background: var(--amber); color: #111; border: none; }
+  #pause-saves { display: flex; gap: 12px; margin-top: 10px; }
+  .story-item { padding: 10px; border: 1px solid var(--line); border-radius: 8px; margin-bottom: 8px; background: var(--panel); }
+  .story-item b { color: var(--amber); }
+  .story-item p { margin: 4px 0 0; font-size: 13px; color: #ddd; }
+</style>
+</head>
+<body>
+<canvas id="game" aria-label="SOLMAR BAY: drive, walk, fight and outrun the SBPD in a sun-soaked coastal city"></canvas>
+<p id="status" role="status" aria-live="polite"></p>
+
+<div id="hud" class="hidden">
+  <div id="mission-box" class="panel">
+    <div class="mission-kicker">MISSION 1/8 · FIRST LIGHT</div>
+    <div class="mission-title">STAGE 1/2 · Borrow a ride</div>
+    <div class="mission-objective">Steal any car on Coral Row</div>
+    <div class="mission-next">NEXT ▸ Walk up to a car and press E</div>
+  </div>
+  <div id="mission-progress" style="display:none"></div>
+
+  <div id="police-box" class="panel">
+    <div id="police-title">SBPD RESPONSE · CLEAR</div>
+    <div id="police-list"><div class="police-none">No units on you. Stay clean.</div></div>
+  </div>
+
+  <div id="map-wrap">
+    <canvas id="minimap" width="200" height="200"></canvas>
+    <div id="district-name">CORAL ROW</div>
+    <div id="district-sub">Neon shops on the sunset strip</div>
+    <div class="bar-row"><span id="district-stand" class="neutral">NEUTRAL · 58</span><span class="bar"><i id="district-bar" style="width:58%"></i></span></div>
+    <div class="bar-row"><span>HP <b id="hp-num">100</b></span><span class="bar"><i id="hp-bar" style="width:100%"></i></span></div>
+    <div class="bar-row"><span>ARMOUR</span><span class="bar"><i id="armour-bar" style="width:55%"></i></span></div>
+    <div class="bar-row"><span>REP</span><span class="bar"><i id="rep-bar" style="width:62%"></i></span></div>
+  </div>
+
+  <div id="money-box">
+    <div id="clock">DAY 1 · 17:25 · SUNSET IN 95M</div>
+    <div id="money">$18,700</div>
+    <div id="stars"><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span><span class="star">★</span></div>
+    <div id="air-banner">▲ AIR UNIT DEPLOYED</div>
+  </div>
+
+  <div id="side-box">
+    <div class="panel">
+      <div id="rank-name">RANK B</div>
+      <div id="rank-sub">3,900 / 5,200 RP</div>
+      <div class="rank-bar-wrap"><i id="rank-bar"></i></div>
+      <div id="weapon-list"></div>
+      <div id="crew-list"></div>
+    </div>
+  </div>
+
+  <div id="dialogue" class="panel">
+    <span class="dlg-face">M</span>
+    <div><div class="dlg-name">MARA VOSS · FIXER</div><div class="dlg-text"></div></div>
+  </div>
+
+  <div id="toast"></div>
+
+  <div id="speed-box">
+    <div><span id="speed-num">0</span> <span id="speed-unit">KM/H</span></div>
+    <div id="car-name">FALCO GT</div>
+    <div class="cond-wrap"><i id="car-cond"></i></div>
+  </div>
+
+  <div id="radio-line">♪ SOL 98.7 · Sunset FM — 'Neon Tide' — The Glass Palms</div>
+  <div id="controls-hint">WASD drive / walk · SPACE handbrake · E enter car · CLICK shoot · 1-4 weapons · R reload · T radio · SHIFT nitro · C camera · ESC pause</div>
+</div>
+
+<div id="title">
+  <h1>SOLMAR BAY</h1>
+  <h2>SUNSET RUN</h2>
+  <p class="tag">A sun-soaked open-world crime game. Steal cars, outrun the SBPD, run eight story jobs with your crew, and own the city before dawn.</p>
+  <button class="start-btn">▶ &nbsp;START ENGINE</button>
+  <div id="title-saves"></div>
+  <div class="keys">WASD drive &amp; walk · SPACE handbrake · E enter / exit car · CLICK shoot · 1–4 weapons · Z / X / C crew abilities · ESC map &amp; pause</div>
+</div>
+
+<div id="pause" class="hidden">
+  <h1>SOLMAR BAY</h1>
+  <div class="pause-tabs">
+    <button class="pause-tab active" data-tab="map">MAP</button>
+    <button class="pause-tab" data-tab="story">STORY</button>
+    <button class="pause-tab" data-tab="stats">STATS</button>
+    <button class="pause-tab" data-tab="crew">CREW</button>
+    <button class="pause-tab" data-tab="controls">CONTROLS</button>
+    <button class="pause-tab" data-tab="save">SAVE</button>
+  </div>
+
+  <div id="pane-map" class="pause-pane">
+    <div class="pause-col"><canvas id="pausemap" width="640" height="460"></canvas></div>
+    <div class="pause-col" style="max-width:280px">
+      <div id="progress-ring" style="--p:66"><div><span id="progress-num">66%</span><span style="font-size:11px;color:#bbb">COMPLETE</span></div></div>
+      <div id="checklist"></div>
+    </div>
+  </div>
+
+  <div id="pane-story" class="pause-pane hidden">
+    <div class="pause-col" id="story-list">
+      <div class="story-item"><b>1 · FIRST LIGHT</b><p>Borrow a ride — steal a car and bring it to Mara's Garage.</p></div>
+      <div class="story-item"><b>2 · THE TIDE JOB</b><p>Escape with the cash and lose the cops before sunset.</p></div>
+      <div class="story-item"><b>3 · HOT WATER</b><p>Get Sable to Marina Verde in one piece.</p></div>
+      <div class="story-item"><b>4 · MARKET SQUEEZE</b><p>Clear the Old Pasaru night market, on foot.</p></div>
+      <div class="story-item"><b>5 · GOLDEN HOUR</b><p>Win the Terrace Climb street race.</p></div>
+      <div class="story-item"><b>6 · ORU'S FALL</b><p>Wreck the Regent before it reaches Kumala Pier.</p></div>
+      <div class="story-item"><b>7 · HARBOR LIGHTS</b><p>Run three dock orders in one night.</p></div>
+      <div class="story-item"><b>8 · SOLMAR NIGHTS</b><p>Survive the five-star storm and reach the pier at dawn.</p></div>
+    </div>
+  </div>
+
+  <div id="pane-stats" class="pause-pane hidden">
+    <div class="pause-col">
+      <h3 style="margin-top:0">CAREER</h3>
+      <div id="career-grid"></div>
+      <h3>MISSION RATINGS</h3>
+      <div id="mission-ratings"></div>
+      <p style="font-size:12px;color:#aaa;margin-top:14px">A complete open world: drive, walk, fight, race, collect. Eight story jobs, three crew abilities, five-star police, street races, stunt jumps and 20 golden geckos hidden across Solmar Bay.</p>
+    </div>
+  </div>
+
+  <div id="pane-crew" class="pause-pane hidden">
+    <div class="pause-col" id="crew-pane"></div>
+  </div>
+
+  <div id="pane-controls" class="pause-pane hidden">
+    <div class="pause-col" style="font-size:14px;line-height:2">
+      <b>WASD / Arrows</b> — drive &amp; walk &nbsp;·&nbsp; <b>SPACE</b> — handbrake / drift<br>
+      <b>E</b> — enter / exit car &nbsp;·&nbsp; <b>CLICK</b> — shoot (on foot) &nbsp;·&nbsp; <b>R</b> — reload<br>
+      <b>1–4</b> — weapons &nbsp;·&nbsp; <b>Z</b> — Swap Plates &nbsp;·&nbsp; <b>X</b> — Slipstream &nbsp;·&nbsp; <b>C</b> — Eyes Out<br>
+      <b>T</b> — radio &nbsp;·&nbsp; <b>M</b> — mute &nbsp;·&nbsp; <b>SHIFT</b> — run / nitro &nbsp;·&nbsp; <b>ESC</b> — map &amp; pause
+    </div>
+  </div>
+
+  <div id="pane-save" class="pause-pane hidden">
+    <div class="pause-col">
+      <h3 style="margin-top:0">SAVE SLOTS</h3>
+      <div id="pause-saves"></div>
+      <p style="font-size:12px;color:#aaa">Saves live in your browser. Three slots, one city.</p>
+    </div>
+  </div>
+
+  <div>
+    <button id="resume-btn" class="pause-btn primary">RESUME</button>
+    <button id="quit-btn" class="pause-btn">QUIT TO TITLE</button>
+  </div>
+  <p style="font-size:11px;color:#888">ESC resume · Q / E switch tab · click the map to set a waypoint</p>
+</div>
+
+<script type="importmap">
+{ "imports": { "three": "./vendor/three.module.min.js" } }
+</script>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
